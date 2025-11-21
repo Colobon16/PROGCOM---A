@@ -1,0 +1,131 @@
+import tkinter as tk
+from tkinter import filedialog, messagebox, ttk
+from tkinter.scrolledtext import ScrolledText
+import re
+import csv
+from datetime import datetime
+
+class AnalizadorLogs:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Analizador de Logs")
+        self.root.geometry("850x550")
+        self.root.configure(bg="#202020")
+
+        self.datos = {}
+
+        self.crear_interfaz()
+
+    def crear_interfaz(self):
+        titulo = tk.Label(self.root, text="Analizador de Logs",
+                          font=("Arial", 20, "bold"), fg="#4fc3f7", bg="#202020")
+        titulo.pack(pady=10)
+
+        marco = tk.Frame(self.root, bg="#202020")
+        marco.pack()
+
+        ttk.Button(marco, text="Abrir archivo", command=self.cargar)\
+            .grid(row=0, column=0, padx=5)
+
+        ttk.Button(marco, text="Analizar", command=self.analizar)\
+            .grid(row=0, column=1, padx=5)
+
+        ttk.Button(marco, text="Guardar TXT", command=self.guardar_txt)\
+            .grid(row=0, column=2, padx=5)
+
+        ttk.Button(marco, text="Exportar CSV", command=self.guardar_csv)\
+            .grid(row=0, column=3, padx=5)
+
+        self.caja = ScrolledText(self.root, width=100, height=25,
+                                 bg="#111", fg="white", insertbackground="white",
+                                 font=("Consolas", 10))
+        self.caja.pack(pady=10)
+
+
+    def cargar(self):
+        ruta = filedialog.askopenfilename(
+            title="Seleccionar log",
+            filetypes=[("Archivos de texto", "*.txt *.log")]
+        )
+
+        if not ruta:
+            return
+
+        try:
+            with open(ruta, "r", encoding="utf-8", errors="ignore") as f:
+                contenido = f.read()
+            self.caja.delete("1.0", tk.END)
+            self.caja.insert(tk.END, contenido)
+            messagebox.showinfo("Archivo cargado", "Listo.")
+        except:
+            messagebox.showerror("Error", "No se pudo leer el archivo.")
+
+
+    def analizar(self):
+        texto = self.caja.get("1.0", tk.END)
+
+        if texto.strip() == "":
+            messagebox.showwarning("Vacío", "No hay nada para analizar.")
+            return
+
+        self.datos = {
+            "ERROR": len(re.findall(r"\bERROR\b", texto, re.IGNORECASE)),
+            "WARNING": len(re.findall(r"\bWARNING\b", texto, re.IGNORECASE)),
+            "INFO": len(re.findall(r"\bINFO\b", texto, re.IGNORECASE)),
+            "CRITICOS": len(re.findall(r"(failed|exception|critical|timeout)", texto, re.IGNORECASE))
+        }
+
+        msg = "\n".join([f"{k}: {v}" for k, v in self.datos.items()])
+        messagebox.showinfo("Resultado del análisis", msg)
+
+
+    def guardar_txt(self):
+        if not self.datos:
+            messagebox.showwarning("Nada que guardar", "Primero analiza algo.")
+            return
+
+        ruta = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            filetypes=[("TXT", "*.txt")]
+        )
+
+        if not ruta:
+            return
+
+        with open(ruta, "w") as f:
+            f.write("=== REPORTE DE ANALISIS DE LOGS ===\n")
+            f.write(f"Fecha: {datetime.now()}\n\n")
+
+            for k, v in self.datos.items():
+                f.write(f"{k}: {v}\n")
+
+        messagebox.showinfo("Guardado", "Archivo TXT creado.")
+
+
+    def guardar_csv(self):
+        if not self.datos:
+            messagebox.showwarning("Nada que exportar", "Realiza un análisis.")
+            return
+
+        ruta = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV", "*.csv")]
+        )
+
+        if not ruta:
+            return
+
+        with open(ruta, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Categoria", "Cantidad"])
+
+            for clave, valor in self.datos.items():
+                writer.writerow([clave, valor])
+
+        messagebox.showinfo("Exportado", "CSV generado correctamente.")
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = AnalizadorLogs(root)
+    root.mainloop()
